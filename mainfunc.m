@@ -30,17 +30,17 @@ vib=data(person).vAligned;
 
 %uniformly divide the data into 11 parts, and only use the first five.
 part=11;
-used=5;
+used=11;
 
-distance=zeros(size(vib,2),part);
-location=zeros(size(vib,2),part);
-baseline=zeros(size(vib,2),part);
-prediction=zeros(size(vib,2),part);
-average=zeros(size(vib,2),part);
+distance=zeros(size(vib,2),used);
+location=zeros(size(vib,2),used);
+baseline=zeros(size(vib,2),used);
+prediction=zeros(size(vib,2),used);
+average=zeros(size(vib,2),used);
 
 vib(isnan(vib))=0;
 
-for i=1:part
+for i=1:used
 %uniformly divide
 vibnow=vib(floor((i-1)*length(vib)/part)+1:floor(i*length(vib)/part),:);
 visionnow=vision(floor((i-1)*length(vision)/part)+1:floor(i*length(vision)/part),:);
@@ -60,8 +60,10 @@ denseline(1,:)=sum(densematrix(:,:,1),2);
 denseline(2,:)=sum(densematrix(:,:,2),2);
 denseline(3,:)=sum(densematrix(:,:,3),2);
 denseline(4,:)=sum(densematrix(:,:,4),2);
-average(:,i)=mean(denseline,2);
+%average(:,i)=mean(denseline,2);
 [m,argmax]=max(denseline,[],2);
+average(:,i)=m;
+
 denseline(1,:)=denseline(1,:)/max(denseline(1,:));
 denseline(2,:)=denseline(2,:)/max(denseline(2,:));
 denseline(3,:)=denseline(3,:)/max(denseline(3,:));
@@ -86,10 +88,10 @@ for j=1:4
             head=ceil(beams(j,1)/(14/200))+1;
             tail=ceil(beams(j,2)/(14/200))+1;
             if sum(denseline(j,head:head+43))>sum(denseline(j,tail-43:tail))
-               estimation(k)=beams(j,1)+distance(k,i)/((average(k,i)/average(j,i)));
+               estimation(k)=beams(j,1)+comparison(beams(k,:),average(k,i),distance(k,i),average(j,i));
 %                  estimation(k)=beams(j,1)+distance(k,i)/(maxpoint(beams(k,:),distance(k,i))/maxpoint(beams(k,:),distance(j,i)));
             else
-                 estimation(k)=beams(j,2)-distance(k,i)/((average(k,i)/average(j,i)));
+                 estimation(k)=beams(j,2)-comparison(beams(k,:),average(k,i),distance(k,i),average(j,i));
 %                  estimation(k)=beams(j,2)-distance(k,i)/(maxpoint(beams(k,:),distance(k,i))/maxpoint(beams(k,:),distance(j,i)));
             end
         end
@@ -101,6 +103,19 @@ end
 location=location(:,1:used);
 baseline=baseline(:,1:used);
 prediction=prediction(:,1:used);
+newlocation=[];
+newprediction=[];
+for i=1:4
+    location1=location(i,:);
+    location1((location1==max(location1)))=[];
+    newlocation=[newlocation,location1];
+    
+    prediction1=prediction(i,:);
+    prediction1((prediction1==max(prediction1)))=[];
+    newprediction=[newprediction,prediction1];
+end
+% location=reshape(newlocation,[used-1,4]).';
+prediction=reshape(newprediction,[used-1,4]).';
 
 %compute baseline, ourmethod, our method with revision
 baselinelocation=mean(baseline,2);
@@ -124,7 +139,7 @@ bestlocation=mean(prediction,2);
 %%
 %final histgram
 figure(1)
-value = [(averagelocation-sensorPos(:,2)).'];
+value =(averagelocation-sensorPos(:,2)).';
 name = {'sensor1','sensor2','sensor3','sensor4'};
 bar(value);
 title("deviation from the truth")
@@ -145,3 +160,23 @@ bar(value);
 title("result variance")
 set(gca, 'XTickLabel', name);
 ylabel('variance of 4 sensors')
+%%
+function distance2=comparison(beams,max1,distance1,max2)
+L=beams(2)-beams(1);
+maxvalue=max1/((L^2-distance1^2)^(3/2)*distance1)*((L^2-(L/2)^2)^(3/2)*(L/2));
+desireratio=max2/maxvalue;
+x=linspace(0,L/2,30);
+test=zeros(1,30);
+for i=1:length(x)
+    test(i)=((L^2-x(i)^2)^(3/2))*x(i);
+end
+test=test/max(test);
+difference=1000;
+for i=1:length(test)
+    diff=abs(desireratio-test(i));
+    if diff<difference
+        distance2=x(i);
+        difference=diff;
+    end
+end
+end
