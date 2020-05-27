@@ -6,7 +6,7 @@ associated with vibration data; vib: vibration data, time length
 Output: heatmap for sensors, the max heat map among those maps.
 %}
 function [maxdensematrix,densematrix]=compute(vision,t,vib)
-overlap=5;
+overlap=8;
 x=linspace(0,2,5);
 stepx=0.5;
 y=linspace(0,14,201);
@@ -27,12 +27,15 @@ for i=1:channel
         if isnan(vib(j))
             vib(j,i)=0;
         end
-        densematrix(yposition,xposition,i)=densematrix(yposition,xposition,i)+(vib(j,i))^2;
+        densematrix(yposition,xposition,i)=densematrix(yposition,xposition,i)+abs(vib(j,i))^2;
         end
     end
-temp=densematrix(:,:,i);
-for k=overlap+1:length(y)-overlap
-densematrix(k,:,i)=sum(temp(k-overlap:overlap+k,:),1);
+% temp=densematrix(:,:,i);
+% for k=overlap+1:length(y)-overlap
+% densematrix(k,:,i)=sum(temp(k-overlap:overlap+k,:),1);
+% end
+for k=1:5
+densematrix(:,k,i)=smooth(densematrix(:,k,i),2*overlap);
 end
 maxdensematrix=maxdensematrix.*(maxdensematrix>=densematrix(:,:,i))+densematrix(:,:,i).*(maxdensematrix<densematrix(:,:,i));
 end
